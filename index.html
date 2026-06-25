@@ -136,10 +136,9 @@
 
 </div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyAgCvy-lfFsxvKNP38C0ioU45PNMGAJH0Q",
   authDomain: "popup-bcc75.firebaseapp.com",
@@ -147,12 +146,11 @@ const firebaseConfig = {
   projectId: "popup-bcc75",
   storageBucket: "popup-bcc75.firebasestorage.app",
   messagingSenderId: "821178507275",
-  appId: "1:821178507275:web:2d47e8487851a7fd6e670e",
-  measurementId: "G-1MJF5WYZMQ"
+  appId: "1:821178507275:web:2d47e8487851a7fd6e670e"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
 const ADMIN_PW = '1234';
 const defaultContents = [
@@ -160,13 +158,12 @@ const defaultContents = [
   { id: 'keycap', icon: 'ti-keyboard', name: '키캡 DIY',   cap: 15, cur: 0 },
   { id: 'patch',  icon: 'ti-needle',   name: '와펜 DIY',   cap: 12, cur: 0 },
 ];
-
 let contents = JSON.parse(JSON.stringify(defaultContents));
 
 function getStatus(pct) {
-  if (pct < 50)    return { label: '여유', color: '#1D9E75', bg: '#E1F5EE', text: '#085041', hint: '바로 참여 가능해요.' };
-  if (pct < 80)    return { label: '보통', color: '#EF9F27', bg: '#FAEEDA', text: '#633806', hint: '약간 대기가 있을 수 있어요.' };
-  if (pct <= 100)  return { label: '혼잡', color: '#E24B4A', bg: '#FCEBEB', text: '#501313', hint: '대기 시간이 길 수 있어요.' };
+  if (pct < 50)   return { label: '여유', color: '#1D9E75', bg: '#E1F5EE', text: '#085041', hint: '바로 참여 가능해요.' };
+  if (pct < 80)   return { label: '보통', color: '#EF9F27', bg: '#FAEEDA', text: '#633806', hint: '약간 대기가 있을 수 있어요.' };
+  if (pct <= 100) return { label: '혼잡', color: '#E24B4A', bg: '#FCEBEB', text: '#501313', hint: '대기 시간이 길 수 있어요.' };
   return { label: '초과', color: '#993556', bg: '#FBEAF0', text: '#4B1528', hint: '현재 입장이 어려울 수 있어요.' };
 }
 function getPct(cur, cap) { return cap ? Math.round((cur / cap) * 100) : 0; }
@@ -175,16 +172,16 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + id).classList.add('active');
 }
-window.showLock = () => { showView('lock'); document.getElementById('pw-input').value=''; document.getElementById('err-msg').textContent=''; };
-window.showVisitor = () => showView('visitor');
-window.logout = () => showView('visitor');
-window.tryLogin = () => {
+function showLock() { showView('lock'); document.getElementById('pw-input').value=''; document.getElementById('err-msg').textContent=''; }
+function showVisitor() { showView('visitor'); }
+function logout() { showView('visitor'); }
+function tryLogin() {
   if (document.getElementById('pw-input').value === ADMIN_PW) {
     showView('admin'); renderAdmin();
   } else {
     document.getElementById('err-msg').textContent = '비밀번호가 올바르지 않아요.';
   }
-};
+}
 
 function renderVisitor() {
   const el = document.getElementById('vis-booths');
@@ -264,31 +261,26 @@ function renderAdmin() {
   `;
 }
 
-window.updateVal = (id, field, val) => {
+function updateVal(id, field, val) {
   const c = contents.find(x => x.id === id);
   if (!c) return;
   c[field] = parseInt(val) || 0;
-  const updates = {};
-  updates[`booths/${id}/${field}`] = c[field];
-  update(ref(db), updates);
+  db.ref('booths/' + id + '/' + field).set(c[field]);
   renderAdmin();
-};
+}
 
-const boothsRef = ref(db, 'booths');
-onValue(boothsRef, (snapshot) => {
+db.ref('booths').on('value', function(snapshot) {
   const data = snapshot.val();
   if (data) {
     contents.forEach(c => {
       if (data[c.id]) {
-        c.cur = data[c.id].cur ?? c.cur;
-        c.cap = data[c.id].cap ?? c.cap;
+        c.cur = data[c.id].cur !== undefined ? data[c.id].cur : c.cur;
+        c.cap = data[c.id].cap !== undefined ? data[c.id].cap : c.cap;
       }
     });
   }
   const currentView = document.querySelector('.view.active')?.id;
-  if (currentView === 'view-connecting') {
-    showView('visitor');
-  }
+  if (currentView === 'view-connecting') showView('visitor');
   renderVisitor();
   if (currentView === 'view-admin') renderAdmin();
 });
