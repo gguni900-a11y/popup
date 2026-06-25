@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>팝업 혼잡도 대시보드</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f5f5f4;
+      --bg-tertiary: #efefed;
+      --bg-info: #e6f1fb;
+      --text-primary: #1a1a18;
+      --text-secondary: #5f5e5a;
+      --text-tertiary: #888780;
+      --text-info: #0c447c;
+      --text-danger: #a32d2d;
+      --border: rgba(0,0,0,0.12);
+      --border-md: rgba(0,0,0,0.22);
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1e1e1c;
+        --bg-secondary: #2a2a28;
+        --bg-tertiary: #333330;
+        --bg-info: #042c53;
+        --text-primary: #f0efe8;
+        --text-secondary: #b4b2a9;
+        --text-tertiary: #888780;
+        --text-info: #85b7eb;
+        --text-danger: #f09595;
+        --border: rgba(255,255,255,0.12);
+        --border-md: rgba(255,255,255,0.22);
+      }
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .container { width: 100%; max-width: 640px; }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .top-bar {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; margin-bottom: 1.5rem;
+    }
+    .top-title { font-size: 20px; font-weight: 500; color: var(--text-primary); }
+    .top-sub { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+    .role-badge {
+      font-size: 11px; font-weight: 500;
+      padding: 4px 12px; border-radius: 99px;
+      white-space: nowrap; flex-shrink: 0;
+    }
+
+    .booths {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 12px; margin-bottom: 1.5rem;
+    }
+    @media (max-width: 480px) {
+      .booths { grid-template-columns: 1fr; }
+    }
+
+    .booth-card {
+      background: var(--bg-primary);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.25rem;
+    }
+    .booth-name { font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; font-weight: 500; }
+    .meter-bg {
+      width: 100%; height: 8px;
+      background: var(--bg-secondary);
+      border-radius: 99px; overflow: hidden;
+      margin: 8px 0 6px;
+    }
+    .meter-fill { height: 100%; border-radius: 99px; transition: width 0.3s, background 0.3s; }
+    .pct { font-size: 22px; font-weight: 500; color: var(--text-primary); }
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 99px;
+      font-size: 12px; font-weight: 500;
+    }
+    .wait-hint { font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
+
+    .admin-inputs { margin-bottom: 12px; }
+    .input-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .input-row label { font-size: 12px; color: var(--text-tertiary); width: 36px; }
+    .input-row input[type=number] {
+      width: 72px; font-size: 13px; text-align: center;
+      border: 0.5px solid var(--border-md); border-radius: var(--radius-md);
+      padding: 5px 6px; background: var(--bg-secondary); color: var(--text-primary);
+      outline: none;
+    }
+    .input-row input[type=number]:focus { border-color: #378add; box-shadow: 0 0 0 2px rgba(55,138,221,0.2); }
+    .input-row span { font-size: 12px; color: var(--text-tertiary); }
+
+    .summary {
+      background: var(--bg-secondary); border-radius: var(--radius-lg);
+      padding: 1rem 1.25rem;
+      display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 12px; margin-bottom: 1.5rem; text-align: center;
+    }
+    .sum-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+    .sum-val { font-size: 20px; font-weight: 500; color: var(--text-primary); }
+
+    .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .leg { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-secondary); }
+    .leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    hr.divider { border: none; border-top: 0.5px solid var(--border); margin: 1.5rem 0; }
+
+    .overall-row {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 1.5rem;
+    }
+    .overall-row .meter-bg { flex: 1; margin: 0; }
+
+    /* lock screen */
+    .lock-wrap {
+      display: flex; flex-direction: column;
+      align-items: center; padding: 3rem 1rem 2rem;
+      gap: 12px; text-align: center;
+    }
+    .lock-icon-wrap {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--bg-secondary);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 4px;
+    }
+    .lock-icon-wrap i { font-size: 26px; color: var(--text-tertiary); }
+    .lock-title { font-size: 16px; font-weight: 500; }
+    .lock-sub { font-size: 13px; color: var(--text-secondary); }
+    .pw-row { display: flex; gap: 8px; margin-top: 4px; }
+    .pw-row input[type=password] {
+      padding: 8px 12px; font-size: 14px; border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-md);
+      background: var(--bg-secondary); color: var(--text-primary);
+      outline: none; width: 180px;
+    }
+    .pw-row input[type=password]:focus { border-color: #378add; box-shadow: 0 0 0 2px rgba(55,138,221,0.2); }
+    .err-msg { font-size: 12px; color: var(--text-danger); min-height: 18px; }
+
+    button {
+      cursor: pointer; background: transparent;
+      border: 0.5px solid var(--border-md);
+      border-radius: var(--radius-md);
+      padding: 7px 16px; font-size: 13px;
+      color: var(--text-primary); font-family: var(--font);
+      transition: background 0.15s;
+    }
+    button:hover { background: var(--bg-secondary); }
+    button.ghost {
+      border: none; color: var(--text-secondary);
+      padding: 4px 8px; font-size: 12px;
+    }
+    button.ghost:hover { background: transparent; color: var(--text-primary); }
+
+    .last-updated {
+      font-size: 11px; color: var(--text-tertiary);
+      text-align: center; margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- 방문자 뷰 -->
+  <div id="view-visitor" class="view active">
+    <div class="top-bar">
+      <div>
+        <div class="top-title"><i class="ti ti-users" style="font-size:18px;vertical-align:-2px;margin-right:6px;"></i>팝업 혼잡도</div>
+        <div class="top-sub">현재 각 부스의 혼잡 상태예요.</div>
+      </div>
+      <span class="role-badge" style="background:var(--bg-secondary);color:var(--text-secondary);">방문자</span>
+    </div>
+    <div class="booths" id="vis-booths"></div>
+    <div class="sum-label" style="margin-bottom:8px;">전체 혼잡도</div>
+    <div id="vis-overall" class="overall-row"></div>
+    <div class="legend">
+      <div class="leg"><div class="leg-dot" style="background:#1D9E75;"></div>여유 (0–49%)</div>
+      <div class="leg"><div class="leg-dot" style="background:#EF9F27;"></div>보통 (50–79%)</div>
+      <div class="leg"><div class="leg-dot" style="background:#E24B4A;"></div>혼잡 (80–100%)</div>
+      <div class="leg"><div class="leg-dot" style="background:#993556;"></div>초과</div>
+    </div>
+    <hr class="divider">
+    <div style="text-align:center;">
+      <button class="ghost" onclick="showLock()">
+        <i class="ti ti-lock" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>관리자 로그인
+      </button>
+    </div>
+    <div class="last-updated" id="last-updated"></div>
+  </div>
+
+  <!-- 비밀번호 화면 -->
+  <div id="view-lock" class="view">
+    <div class="lock-wrap">
+      <div class="lock-icon-wrap"><i class="ti ti-lock"></i></div>
+      <div class="lock-title">관리자 전용</div>
+      <div class="lock-sub">비밀번호를 입력하세요.</div>
+      <div class="pw-row">
+        <input type="password" id="pw-input" placeholder="비밀번호" onkeydown="if(event.key==='Enter')tryLogin()">
+        <button onclick="tryLogin()">로그인</button>
+      </div>
+      <div class="err-msg" id="err-msg"></div>
+      <button class="ghost" onclick="showVisitor()" style="margin-top:8px;">
+        <i class="ti ti-arrow-left" style="font-size:13px;vertical-align:-1px;"></i> 방문자 화면으로
+      </button>
+    </div>
+  </div>
+
+  <!-- 관리자 뷰 -->
+  <div id="view-admin" class="view">
+    <div class="top-bar">
+      <div>
+        <div class="top-title"><i class="ti ti-settings" style="font-size:18px;vertical-align:-2px;margin-right:6px;"></i>관리자 대시보드</div>
+        <div class="top-sub">참여자 수와 정원을 입력해 혼잡도를 관리하세요.</div>
+      </div>
+      <span class="role-badge" style="background:var(--bg-info);color:var(--text-info);">관리자</span>
+    </div>
+    <div class="booths" id="admin-booths"></div>
+    <div class="summary" id="admin-summary"></div>
+    <div class="legend">
+      <div class="leg"><div class="leg-dot" style="background:#1D9E75;"></div>여유 (0–49%)</div>
+      <div class="leg"><div class="leg-dot" style="background:#EF9F27;"></div>보통 (50–79%)</div>
+      <div class="leg"><div class="leg-dot" style="background:#E24B4A;"></div>혼잡 (80–100%)</div>
+      <div class="leg"><div class="leg-dot" style="background:#993556;"></div>초과</div>
+    </div>
+    <hr class="divider">
+    <button class="ghost" onclick="logout()">
+      <i class="ti ti-logout" style="font-size:13px;vertical-align:-1px;margin-right:4px;"></i>로그아웃
+    </button>
+  </div>
+
+</div>
+<script>
+const ADMIN_PW = '1234';
+const contents = [
+  { id: 'tshirt', icon: 'ti-shirt',    name: '티셔츠 DIY', cap: 20, cur: 0 },
+  { id: 'keycap', icon: 'ti-keyboard', name: '키캡 DIY',   cap: 15, cur: 0 },
+  { id: 'patch',  icon: 'ti-needle',   name: '와펜 DIY',   cap: 12, cur: 0 },
+];
+
+function getStatus(pct) {
+  if (pct < 50)   return { label: '여유', color: '#1D9E75', bg: '#E1F5EE', text: '#085041', hint: '바로 참여 가능해요.' };
+  if (pct < 80)   return { label: '보통', color: '#EF9F27', bg: '#FAEEDA', text: '#633806', hint: '약간 대기가 있을 수 있어요.' };
+  if (pct <= 100) return { label: '혼잡', color: '#E24B4A', bg: '#FCEBEB', text: '#501313', hint: '대기 시간이 길 수 있어요.' };
+  return { label: '초과', color: '#993556', bg: '#FBEAF0', text: '#4B1528', hint: '현재 입장이 어려울 수 있어요.' };
+}
+function getPct(cur, cap) { return cap ? Math.round((cur / cap) * 100) : 0; }
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+}
+function showLock() { showView('lock'); document.getElementById('pw-input').value=''; document.getElementById('err-msg').textContent=''; }
+function showVisitor() { showView('visitor'); renderVisitor(); }
+function logout() { showVisitor(); }
+function tryLogin() {
+  if (document.getElementById('pw-input').value === ADMIN_PW) {
+    showView('admin'); renderAdmin();
+  } else {
+    document.getElementById('err-msg').textContent = '비밀번호가 올바르지 않아요.';
+  }
+}
+
+function renderVisitor() {
+  const el = document.getElementById('vis-booths');
+  el.innerHTML = '';
+  let tc = 0, tp = 0;
+  contents.forEach(c => {
+    tc += c.cur; tp += c.cap;
+    const pct = getPct(c.cur, c.cap);
+    const st = getStatus(pct);
+    const card = document.createElement('div');
+    card.className = 'booth-card';
+    card.innerHTML = `
+      <div style="margin-bottom:8px;"><i class="ti ${c.icon}" style="font-size:20px;color:${st.color};"></i></div>
+      <div class="booth-name">${c.name}</div>
+      <div class="meter-bg"><div class="meter-fill" style="width:${Math.min(pct,100)}%;background:${st.color};"></div></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
+        <span class="badge" style="background:${st.bg};color:${st.text};">${st.label}</span>
+        <span class="pct">${pct}%</span>
+      </div>
+      <div class="wait-hint">${st.hint}</div>
+    `;
+    el.appendChild(card);
+  });
+  const tp2 = getPct(tc, tp);
+  const tst = getStatus(tp2);
+  document.getElementById('vis-overall').innerHTML = `
+    <div class="meter-bg" style="flex:1;margin:0;"><div class="meter-fill" style="width:${Math.min(tp2,100)}%;background:${tst.color};"></div></div>
+    <span class="badge" style="background:${tst.bg};color:${tst.text};font-size:13px;">${tst.label} ${tp2}%</span>
+  `;
+  const now = new Date();
+  document.getElementById('last-updated').textContent = `마지막 업데이트: ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+}
+
+function renderAdmin() {
+  const el = document.getElementById('admin-booths');
+  el.innerHTML = '';
+  let tc = 0, tp = 0;
+  contents.forEach(c => {
+    tc += c.cur; tp += c.cap;
+    const pct = getPct(c.cur, c.cap);
+    const st = getStatus(pct);
+    const card = document.createElement('div');
+    card.className = 'booth-card';
+    card.innerHTML = `
+      <div style="margin-bottom:6px;"><i class="ti ${c.icon}" style="font-size:20px;color:${st.color};"></i></div>
+      <div class="booth-name">${c.name}</div>
+      <div class="admin-inputs">
+        <div class="input-row">
+          <label>현재</label>
+          <input type="number" min="0" max="999" value="${c.cur}" oninput="updateVal('${c.id}','cur',this.value)">
+          <span>명</span>
+        </div>
+        <div class="input-row">
+          <label>정원</label>
+          <input type="number" min="1" max="999" value="${c.cap}" oninput="updateVal('${c.id}','cap',this.value)">
+          <span>명</span>
+        </div>
+      </div>
+      <div class="meter-bg"><div class="meter-fill" style="width:${Math.min(pct,100)}%;background:${st.color};"></div></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
+        <span class="badge" style="background:${st.bg};color:${st.text};">${st.label}</span>
+        <span class="pct">${pct}%</span>
+      </div>
+    `;
+    el.appendChild(card);
+  });
+  const tp2 = getPct(tc, tp);
+  const tst = getStatus(tp2);
+  document.getElementById('admin-summary').innerHTML = `
+    <div><div class="sum-label">총 참여자</div><div class="sum-val">${tc}명</div></div>
+    <div><div class="sum-label">총 정원</div><div class="sum-val">${tp}명</div></div>
+    <div>
+      <div class="sum-label">전체 혼잡도</div>
+      <div class="sum-val">${tp2}%</div>
+      <span class="badge" style="background:${tst.bg};color:${tst.text};font-size:11px;margin-top:4px;">${tst.label}</span>
+    </div>
+  `;
+}
+
+function updateVal(id, field, val) {
+  const c = contents.find(x => x.id === id);
+  if (c) { c[field] = parseInt(val) || 0; renderAdmin(); }
+}
+
+renderVisitor();
+</script>
+</body>
+</html>
